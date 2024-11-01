@@ -196,7 +196,7 @@ LTheme::LTheme(
 	const std::filesystem::path& file_path,
 	LDefinition* parent) :
 	pimpl{ new Impl() },
-	LDefinition(name, value.to_object()["attributes"].to_object(), file_path, parent)
+	LDefinition(name, value.to_object(), file_path, parent)
 {
 	if (value.is_object())
 	{

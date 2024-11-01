@@ -84,18 +84,18 @@ public:
         if (!path.empty())
         {
             auto path_parts = split<std::deque<LString>>(path, '/');
-                    LString absolute_attr_name = path_parts.back();
-                    path_parts.pop_back();
+            LString absolute_attr_name = path_parts.back();
+            path_parts.pop_back();
 
-                    if (LDefinition* def = lController.find_definition(path_parts))
-                        for (const auto& [attr_name, attr] : def->attributes())
-                            if (attr_name == absolute_attr_name)
-                            {
-                                attribute = attr;
+            if (LDefinition* def = lController.find_definition(path_parts))
+                for (const auto& [attr_name, attr] : def->attributes())
+                    if (attr_name == absolute_attr_name)
+                    {
+                        attribute = attr;
 
-                                return true;
-                                //return attr->as<T>();
-                            }
+                        return true;
+                        //return attr->as<T>();
+                    }
         }
 
         return true;
@@ -107,6 +107,13 @@ LLink::LLink(const LString& absolute_path, const LString& relative_path) :
 
 LLink::LLink(LAttribute* attribute) :
 	pimpl{ new Impl(attribute) } {}
+
+LLink::LLink(const LLink& l) :
+    pimpl{ new Impl(l.pimpl->path, l.pimpl->relative_path) }
+{
+	pimpl->attribute = l.pimpl->attribute;
+	pimpl->relative_attribute = l.pimpl->relative_attribute;
+}
 
  LAttribute* LLink::attribute() const
 {

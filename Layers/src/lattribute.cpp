@@ -594,6 +594,12 @@ void LAttribute::create_link(LAttribute* link_attr)
 	pimpl->link = new LLink(link_attr);
 }
 
+void LAttribute::create_link(LLink* link)
+{
+	if (link)
+		pimpl->link = new LLink(*link);
+}
+
 void LAttribute::create_state(const LString& name, const char* value)
 {
 	create_state(name, LString(value));

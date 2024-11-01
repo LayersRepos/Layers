@@ -36,15 +36,24 @@ using Layers::LString;
 using Layers::LTheme;
 using Layers::LController;
 
+using DependencyGraph = std::map<LDefinition*, std::vector<LDefinition*>>;
+using DependencyCount = std::map<LDefinition*, int>;
+
+struct DependencyData
+{
+	DependencyGraph graph;
+	DependencyCount indegree;
+};
+
 class LController::Impl
 {
 public:
 	std::map<LString, LTheme*> themes;
 	LTheme* active_theme{ nullptr };
 
-	std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>> definition_builders;
+	LDefinition* root_definition{ new LDefinition };
 
-	LDefinition* root_definition{ new LDefinition  };
+	std::map<LString, LDefinition*> unparented_definitions;
 
 	Impl()
 	{
@@ -92,96 +101,32 @@ public:
 		std::map<std::filesystem::path, std::string> file_strings = load_definition_path(path);
 		parse_aliases(path, file_strings);
 
-		// Build Definition Builders
-
-		std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>> unresolved_builders =
-			build_definition_builders(file_strings);
+		// Parse file_strings into file_objects
+		std::map<std::filesystem::path, LJsonObject> file_objects =
+			build_file_objects(file_strings);
 
 		// Build Definitions
 
-		build_definitions(unresolved_builders);
+		std::set<LDefinition*> unresolved_definitions = build_definitions(file_objects);
 
-		//// Resolve Links
+		// Resolve Bases
 
-		//root_definition->resolve_links();
+		for (LDefinition* def : unresolved_definitions)
+			resolve_base(def);
 
-		int x = 26;
-	}
+		// Build Dependency Graph
+		DependencyData dep_data = build_dependency_data(unresolved_definitions);
 
-	void build_definitions(std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>>& unresolved_builders)
-	{
-		std::vector<LDefinition*> unparented_definitions;
+		std::vector<LDefinition*> ordered_definitions = topological_sort(dep_data);
 
-		while (!unresolved_builders.empty())
-		{
-			std::set<std::filesystem::path> resolvable_paths;
+		// Copy Bases
 
-			for (const auto& [path, file_builders] : unresolved_builders)
-			{
-				bool ready_to_finalize = true;
-
-				for (const auto& [key, builder] : file_builders)
-				{
-					if (!builder.base_path.empty())
-					{
-						if (definition_builders.count(builder.base_path))
-						{
-							if (!definition_builders[builder.base_path].count(builder.base_name.c_str()))
-								ready_to_finalize = false;
-						}
-						else
-							ready_to_finalize = false;
-					}
-				}
-
-				if (ready_to_finalize)
-				{
-					resolvable_paths.insert(path);
-					//break;
-				}
-			}
-
-			// If none of the paths can resolve, break the loop
-			if (resolvable_paths.empty())
-				break;
-
-			for (const auto& path : resolvable_paths)
-			{
-				for (auto& [key, builder] : unresolved_builders[path])
-				{
-					// Merge Attributes
-
-					if (!builder.base_path.empty())
-					{
-						LDefinitionBuilder& base_builder =
-							definition_builders[builder.base_path][builder.base_name];
-
-						builder.attributes = merge_attributes(base_builder.attributes, builder.attributes);
-					}
-
-					// Create Definition
-
-					LDefinition* def = new LDefinition(key, builder.attributes, path);
-
-					// Append Definition
-
-					if (std::string(key.c_str()).find("/") != std::string::npos)
-						unparented_definitions.push_back(def);
-					else
-						root_definition->append_child(def);
-
-					// Store Builder
-
-					definition_builders[path][key] = builder;
-				}
-
-				unresolved_builders.erase(path);
-			}
-		}
+		for (LDefinition* def : ordered_definitions)
+			def->finalize();
 
 		// Resolve Parents
 
-		for (const auto& unparented_def : unparented_definitions)
+		for (const auto& [_, unparented_def] : unparented_definitions)
 		{
 			LString unparented_def_name =
 				unparented_def->object_name();
@@ -198,6 +143,99 @@ public:
 				parent_def->append_child(unparented_def);
 			}
 		}
+
+		int x = 26;
+	}
+
+	std::map<std::filesystem::path, LJsonObject> build_file_objects(
+		const std::map<std::filesystem::path, std::string>& file_strings)
+	{
+		std::map<std::filesystem::path, LJsonObject> file_objects;
+
+		for (const auto& [file_path, content] : file_strings)
+		{
+			LJsonLexer lexer(content);
+			LJsonParser parser(lexer);
+
+			file_objects[file_path] = parser.parse_object();
+		}
+
+		return file_objects;
+	}
+
+	DependencyData build_dependency_data(
+		const std::set<LDefinition*>& definitions)
+	{
+		DependencyGraph graph;
+		DependencyCount indegree;
+
+		for (LDefinition* def : definitions)
+		{
+			graph[def];
+			indegree[def];
+
+			for (LDefinition* base : def->dependencies())
+			{
+				// Skip already resolved dependencies
+				if (definitions.find(base) == definitions.end())
+					continue;
+
+				graph[base].push_back(def);
+				++indegree[def];
+			}
+		}
+
+		return { graph, indegree };
+	}
+
+	std::vector<LDefinition*> topological_sort(DependencyData& dep_data)
+	{
+		std::vector<LDefinition*> sorted;
+		std::deque<LDefinition*> queue;
+
+		// Start with nodes with no unresolved dependencies in the current set
+		for (auto& [def, count] : dep_data.indegree)
+			if (count == 0)
+				queue.push_back(def);
+
+		while (!queue.empty())
+		{
+			LDefinition* def = queue.front();
+			queue.pop_front();
+			sorted.push_back(def);
+
+			for (LDefinition* dependent : dep_data.graph.at(def))
+				if (--dep_data.indegree[dependent] == 0)
+					queue.push_back(dependent);
+		}
+
+		// Check for cycles among unresolved dependencies
+		for (const auto& [def, count] : dep_data.indegree)
+			if (count > 0)
+				throw std::runtime_error("Cycle detected in dependency graph");
+
+		return sorted;
+	}
+
+	std::set<LDefinition*> build_definitions(
+		const std::map<std::filesystem::path, LJsonObject>& file_objects)
+	{
+		std::set<LDefinition*> definitions;
+
+		for (const auto& [file_path, object] : file_objects)
+			for (const auto& [key, value] : object)
+			{
+				LDefinition* def = new LDefinition(key, value, file_path);
+
+				definitions.insert(def);
+
+				if (std::string(key.c_str()).find("/") != std::string::npos)
+					unparented_definitions[key] = def;
+				else
+					root_definition->append_child(def);
+			}
+
+		return definitions;
 	}
 
 	LJsonObject merge_attributes(const LJsonObject& base_attributes, const LJsonObject& attributes)
@@ -261,104 +299,6 @@ public:
 		}
 	}
 
-	void process_json_object(
-		std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>>& definition_builders,
-		const std::filesystem::path& file_path,
-		const LJsonObject& json_obj,
-		const LString& parent_path = "") 
-	{
-		for (const auto& [key, value] : json_obj) {
-			LString current_path = parent_path.empty() ? key : parent_path + "/" + key;
-
-			LDefinitionBuilder definition_builder;
-
-			// Check if this object includes another definition
-			if (value.is_string())
-			{
-				std::string include(value.to_string().c_str());
-				size_t delim_pos = include.find("::");
-				std::string file_part = include.substr(0, delim_pos);
-				std::string widget_name = include.substr(delim_pos + 2);
-
-				// Check if the path contains a slash character
-				if (file_part.find('/') != std::string::npos ||
-					file_part.find('\\') != std::string::npos)
-				{
-					definition_builder.base_path = definitions_path() / file_part;
-				}
-				else
-				{
-					// File is a relative path within the same project directory
-					definition_builder.base_path = file_path.parent_path() / file_part;
-				}
-
-				definition_builder.base_name = widget_name.c_str();
-			}
-			else if (value.is_object())
-			{
-				LJsonObject value_obj = value.to_object();
-
-				if (value_obj.count("_include"))
-				{
-					std::string include(value_obj["_include"].to_string().c_str());
-					size_t delim_pos = include.find("::");
-					std::string file_part = include.substr(0, delim_pos);
-					std::string widget_name = include.substr(delim_pos + 2);
-
-					// Check if the path contains a slash character
-					if (file_part.find('/') != std::string::npos ||
-						file_part.find('\\') != std::string::npos)
-					{
-						definition_builder.base_path = definitions_path() / file_part;
-					}
-					else
-					{
-						// File is a relative path within the same project directory
-						definition_builder.base_path = file_path.parent_path() / file_part;
-					}
-
-					definition_builder.base_name = widget_name.c_str();
-				}
-
-				if (value_obj.count("attributes"))
-				{
-					definition_builder.attributes = value_obj["attributes"].to_object();
-				}
-
-				// Recursively process children if they exist
-				if (value_obj.count("children"))
-				{
-					process_json_object(
-						definition_builders,
-						file_path,
-						value_obj["children"].to_object(),
-						current_path);
-				}
-			}
-
-			definition_builders[file_path][current_path] = definition_builder;
-		}
-	}
-
-	std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>> build_definition_builders(
-		const std::map<std::filesystem::path, std::string>& file_strings)
-	{
-		std::map<std::filesystem::path, std::map<LString, LDefinitionBuilder>> definition_builders;
-
-		for (const auto& [file_path, content] : file_strings) {
-			// Parse the JSON content
-			LJsonLexer lexer(content);
-			LJsonParser parser(lexer);
-			LJsonObject root = parser.parse_object();
-
-			// Process the JSON object to build the definition builders
-			for (const auto& [key, value] : root) {
-				process_json_object(definition_builders, file_path, root);
-			}
-		}
-		return definition_builders;
-	}
-
 	LTheme* load_theme(const std::filesystem::path& directory)
 	{
 		std::map<std::filesystem::path, std::string> file_strings = 
@@ -376,15 +316,6 @@ public:
 
 			for (const auto& [key, value] : json_object)
 				return new LTheme(key, value, file_path);
-
-				// path_definitions[file_path].push_back(def);
-
-				// for (const std::filesystem::path& dep : def->dependencies())
-				// 	if (!dep.empty())
-				// 		file_dependencies.insert(dep);
-
-			// if (!file_dependencies.empty())
-			// 	dependencies[file_path] = file_dependencies;
 		}
 
 		return nullptr;

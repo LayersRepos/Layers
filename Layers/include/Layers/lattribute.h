@@ -90,6 +90,8 @@ public:
 
 	void create_link(LAttribute* link_attr);
 
+	void create_link(LLink* link);
+
 	void create_state(const LString& name, const char* value);
 
 	void create_state(const LString& name, LVariant value);

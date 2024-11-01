@@ -43,6 +43,8 @@ public:
 
     LLink(LAttribute* attribute);
 
+	LLink(const LLink& l);
+
     LAttribute* attribute() const;
 
 	LAttribute* relative_attribute() const;

@@ -38,24 +38,11 @@ class LAttribute;
 class LAYERS_EXPORT LDefinition : public LObject
 {
 public:
-	//LDefinition(
-	//	const LString& name,
-	//	const LAttributeMap& attributes,
-	//	bool is_overridable,
-	//	const LString& file_name,
-	//	LDefinition* parent = nullptr);
-
 	LDefinition();
 
 	LDefinition(
 		const LString& name,
 		const LJsonValue& value,
-		const std::filesystem::path& file_path,
-		LDefinition* parent = nullptr);
-
-	LDefinition(
-		const LString& name,
-		const LJsonObject& attributes_obj,
 		const std::filesystem::path& file_path,
 		LDefinition* parent = nullptr);
 
@@ -77,7 +64,7 @@ public:
 
 	std::map<LString, LDefinition*> children();
 
-	std::set<std::filesystem::path> dependencies();
+	std::set<LDefinition*> dependencies();
 
 	LString file_name() const;
 
@@ -106,13 +93,6 @@ public:
 private:
 	class Impl;
 	Impl* pimpl;
-};
-
-struct LDefinitionBuilder
-{
-	LJsonObject attributes;
-	std::filesystem::path base_path;
-	LString base_name;
 };
 
 LAYERS_NAMESPACE_END

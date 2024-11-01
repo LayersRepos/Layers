@@ -202,31 +202,16 @@ public:
 		return m_children.size();
 	}
 
-	std::map<LString, LDefinition*> children()
+	std::set<LDefinition*> dependencies()
 	{
-		std::map<LString, LDefinition*> children;
-
-		children.insert(m_children.begin(), m_children.end());
+		std::set<LDefinition*> dependencies;
 
 		if (base)
-		{
-			std::map<LString, LDefinition*> base_children = base->children();
-			children.insert(base_children.begin(), base_children.end());
-		}
+			dependencies.insert(base);
 
-		return children;
-	}
-
-	std::set<std::filesystem::path> dependencies()
-	{
-		std::set<std::filesystem::path> dependencies;
-
-		if (!base_path.empty())
-			dependencies.insert(base_path);
-
-		for (const auto& [name, child_def]: children())
-			for (const std::filesystem::path& child_dep : child_def->dependencies())
-				if (!child_dep.empty())
+		for (const auto& [name, child_def]: m_children)
+			for (const auto& child_dep : child_def->dependencies())
+				if (child_dep)
 					dependencies.insert(child_dep);
 
 		return dependencies;
@@ -239,30 +224,36 @@ public:
 
 	void finalize()
 	{
-		//for (auto& [base_attr_name, base_attr] : base->attributes())
-		//{
-		//	if (m_attributes.count(base_attr_name))
-		//	{
-		//		// Handle attribute overriding and amendment
-		//	}
-		//	else
-		//	{
-		//		m_attributes[base_attr_name] = LAttribute(base_attr);
-		//	}
-		//}
+		for (const auto& [child_name, child] : m_children)
+			child->finalize();
 
-		// for (auto [attr_name, attr] : m_attributes)
-		// {
-		// 	/*
-		// 		1. Check if attr_name matches the name of any base attributes
+		if (base)
+		{
+			// Merge attributes
+			LAttributeMap base_attrs = base->attributes();
+			
+			for (const auto& [base_key, base_attr] : base_attrs)
+			{
+				if (m_attributes.count(base_key))
+				{
+					if (m_attributes[base_key]->value().index() == 0 &&
+						!m_attributes[base_key]->link())
+					{
+						if (base_attr->link())
+							m_attributes[base_key]->create_link(base_attr->link());
+						else
+							m_attributes[base_key]->set_value(base_attr->value());
+					}
+					// Can also check if base has states not present here
+				}
+				else
+					m_attributes[base_key] = base_attr;
+			}
 
-		// 		- This should probably check attributes going up the
-		// 		  inheritance hierarchy.
-		// 	*/
-		// }
-
-		// for (auto [child_name, child] : children())
-		// 	child->finalize_attributes();
+			// Merge children
+			std::map<LString, LDefinition*> base_children = base->children();
+			m_children.insert(base_children.begin(), base_children.end());
+		}
 	}
 
 	LAttribute* find_attribute(const LString& name)
@@ -273,8 +264,8 @@ public:
 				return attr;
 		}
 
-		if (base)
-			return base->find_attribute(name);
+		//if (base)
+		//	return base->find_attribute(name);
 		
 		return nullptr;
 	}
@@ -340,57 +331,26 @@ public:
 	}
 };
 
-//LDefinition::LDefinition(
-//	const LString& name,
-//	const LAttributeMap& attributes,
-//	bool is_overridable,
-//	const LString& file_name,
-//	LDefinition* parent
-//) :
-//	pimpl{ new Impl(attributes, is_overridable, file_name) },
-//	LObject(parent)
-//{
-//	set_object_name(name);
-//
-//	for (const auto& [key, attr] : attributes)
-//		attr->set_parent(this);
-//}
-
 LDefinition::LDefinition() :
 	pimpl{ new Impl() },
 	LObject() {}
 
-//LDefinition::LDefinition(
-//	const LString& name,
-//	const LJsonValue& value,
-//	const std::filesystem::path& file_path,
-//	LDefinition* parent
-//) :
-//	pimpl{ new Impl(value, file_path) },
-//	LObject(parent)
-//{
-//	set_object_name(name);
-//
-//	for (const auto& [key, attr] : attributes())
-//		attr->set_parent(this);
-//
-//	for (const auto& [name, definition] : children())
-//		definition->set_parent(this);
-//}
-
 LDefinition::LDefinition(
 	const LString& name,
-	const LJsonObject& attributes_obj,
+	const LJsonValue& value,
 	const std::filesystem::path& file_path,
 	LDefinition* parent
 ) :
-	pimpl{ new Impl(attributes_obj, file_path) },
+	pimpl{ new Impl(value, file_path) },
 	LObject(parent)
 {
 	set_object_name(name);
 
 	for (const auto& [key, attr] : attributes())
 		attr->set_parent(this);
+
+	for (const auto& [name, definition] : children())
+		definition->set_parent(this);
 }
 
 LDefinition::~LDefinition()
@@ -434,10 +394,10 @@ size_t LDefinition::child_count() const
 
 std::map<LString, LDefinition*> LDefinition::children()
 {
-	return pimpl->children();
+	return pimpl->m_children;
 }
 
-std::set<std::filesystem::path> LDefinition::dependencies()
+std::set<LDefinition*> LDefinition::dependencies()
 {
 	return pimpl->dependencies();
 }
