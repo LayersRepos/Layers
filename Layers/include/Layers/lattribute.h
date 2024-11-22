@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Layers Project
+ * Copyright (C) 2024 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -103,15 +103,9 @@ public:
 
 	void disconnect_link_change(const LConnectionID& connection);
 
-	//LLink* dynamic_link() const;
-
 	bool has_states() const;
 
 	//LJsonObject& json_object();
-
-	//LAttribute* link_attribute() const;
-
-	//LString link_path() const;
 
 	LConnectionID on_change(std::function<void()> callback);
 
@@ -124,10 +118,6 @@ public:
 	LString path() const;
 
 	void resolve_links();
-
-	//void set_link_attribute(LAttribute* link_attr);
-
-	//void set_link_path(const LString& link_path);
 
 	void set_definition_attribute(LAttribute* definition_attribute);
 
@@ -157,14 +147,6 @@ private:
 template<typename T>
 T LAttribute::as(const LStringList& state_combo)
 {
-	if (parent() && parent()->object_name() == "Tabs" && object_name() == "Fill")
-	{
-		if (LDefinition* parent_def = dynamic_cast<LDefinition*>(parent()))
-		{
-			int x = 26;
-		}
-	}
-
 	if (definition_attribute())
 		return definition_attribute()->as<T>(state_combo);
 	
@@ -176,7 +158,7 @@ T LAttribute::as(const LStringList& state_combo)
 	if (link())
 	{
 		if (link()->relative_attribute())
-			return link()->attribute()->as<T>();
+			return link()->relative_attribute()->as<T>();
 
 		else if (link()->attribute())
 			return link()->attribute()->as<T>();
@@ -185,79 +167,9 @@ T LAttribute::as(const LStringList& state_combo)
 	return std::get<T>(value());
 }
 
-// template<typename T>
-// T LAttribute::as(LDefinition* definition)
-// {
-// //T LAttribute::as(const std::vector<LString>& state_combo) {
-// 	if (definition_attribute())
-// 		return definition_attribute()->as<T>(definition);
-
-// 	// TEMP: Disabling override valuation
-// 	// if (!overrides().empty() && !state_combo.empty())
-// 	// 	if (LAttribute* override_attr = override_attribute(definable))
-// 	// 		return override_attr->as<T>();
-
-// 	if (dynamic_link())
-// 	{
-// 		LStringList link_parts =
-// 			split<LStringList>(dynamic_link()->path(), '/');
-
-// 		/*
-// 			NOTE:
-// 			The following assumes that dynamic links always begin with double-
-// 			dot notation and that there is always only 1 of them. Other cases
-// 			have not yet been considered.
-// 		*/
-// 		if (link_parts[0] == "..")
-// 		{
-// 			if (LObject* parent_parent_obj = definition->parent())
-// 			{
-// 				if (LDefinition* parent_parent_as_def = dynamic_cast<LDefinition*>(parent_parent_obj))
-// 				{
-// 					for (const auto& [key, attr] : parent_parent_as_def->attributes())
-// 						if (attr->object_name() == link_parts[1])
-// 							return attr->as<T>(parent_parent_as_def);
-// 				}
-// 			}
-// 			else
-// 			{
-// 				auto static_link_parts =
-// 					split<std::deque<LString>>(static_link()->path(), '/');
-// 				LString static_link_attr_name = static_link_parts.back();
-// 				static_link_parts.pop_back();
-
-// 				if (LDefinition* def = lController.find_definition(static_link_parts))
-// 					for (const auto& [attr_name, attr] : def->attributes())
-// 						if (attr_name == static_link_attr_name)
-// 							return attr->as<T>();
-// 			}
-// 		}
-// 	}
-// 	// TODO: Need to handle static link
-
-// 	//if (link_attribute())
-// 	//	return link_attribute()->as<T>();
-
-// 	return std::get<T>(value());
-// }
-
 template<typename T>
 const T* LAttribute::as_if(const LStringList& state_combo)
 {
-//const T* LAttribute::as_if(const std::vector<LString>& state_combo) {
-	// if (definition_attribute())
-	// 	return definition_attribute()->as_if<T>(defintion);
-
-	// // if (!overrides().empty() && !state_combo.empty()) {
-	// // 	if (LAttribute* override_attr = override_attribute(definable))
-	// // 		return override_attr->as_if<T>();
-	// // }
-
-	// // if (link_attribute())
-	// // 	return link_attribute()->as_if<T>();
-
-	// return std::get_if<T>(&value());
-
 	if (definition_attribute())
 		return definition_attribute()->as_if<T>(state_combo);
 
@@ -269,7 +181,7 @@ const T* LAttribute::as_if(const LStringList& state_combo)
 	if (link())
 	{
 		if (link()->relative_attribute())
-			return link()->attribute()->as_if<T>();
+			return link()->relative_attribute()->as_if<T>();
 
 		else if (link()->attribute())
 			return link()->attribute()->as_if<T>();

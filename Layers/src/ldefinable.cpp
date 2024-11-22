@@ -47,15 +47,6 @@ public:
 	{
 		if (definition)
 		{
-			if (definition->object_name() == "Tab Bar")
-			{
-				int a = 0;
-			}
-			else if (definition->object_name() == "Titlebar")
-			{
-				int a = 0;
-			}
-
 			if (t->object_name() == definition->object_name())
 			{
 				m_definition = definition;

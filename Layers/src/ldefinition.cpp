@@ -54,7 +54,7 @@ public:
 		file_path{ file_path },
 		value{ value }
 	{
-		// Lambda to handle dependency parsing
+		// Handle dependency parsing
 		auto parse_include = [&](const LString& include_str)
 			-> std::pair<std::filesystem::path, LString>
 			{
@@ -161,25 +161,13 @@ public:
 	}
 
 	std::map<LString, LAttribute*> attributes(int type_index = -1)
-	{
-		// TODO: Gather base attributes and consider any owned by this
-		//       as overriding the base.
-
-		LAttributeMap attrs;
-		attrs.insert(m_attributes.begin(), m_attributes.end());
-
-		if (base)
-		{
-			LAttributeMap base_attrs = base->attributes();
-			attrs.insert(base_attrs.begin(), base_attrs.end());
-		}
-		
+	{		
 		if (type_index < 0)
-			return attrs;
+			return m_attributes;
 
 		LAttributeMap filtered_attrs;
 
-		for (const auto& [key, attr] : attrs)
+		for (const auto& [key, attr] : m_attributes)
 			if (attr->type_index() == type_index)
 				filtered_attrs[key] = attr;
 
@@ -224,14 +212,16 @@ public:
 
 	void finalize()
 	{
-		for (const auto& [child_name, child] : m_children)
+		// Finalize all children first
+		for (const auto& [child_name, child] : m_children) {
 			child->finalize();
+		}
 
 		if (base)
 		{
 			// Merge attributes
 			LAttributeMap base_attrs = base->attributes();
-			
+
 			for (const auto& [base_key, base_attr] : base_attrs)
 			{
 				if (m_attributes.count(base_key))
@@ -244,15 +234,70 @@ public:
 						else
 							m_attributes[base_key]->set_value(base_attr->value());
 					}
-					// Can also check if base has states not present here
+					// Optionally check and merge missing states from base
+					for (const auto& [state, state_attr] : base_attr->states())
+					{
+						if (!m_attributes[base_key]->states().count(state))
+							m_attributes[base_key]->create_state(state, state_attr->value());
+					}
 				}
-				else
+				else {
 					m_attributes[base_key] = base_attr;
+				}
 			}
 
-			// Merge children
-			std::map<LString, LDefinition*> base_children = base->children();
-			m_children.insert(base_children.begin(), base_children.end());
+			// Merge children recursively
+			for (const auto& [base_child_name, base_child] : base->children())
+			{
+				if (m_children.count(base_child_name))
+				{
+					// Child exists, recursively finalize and merge attributes
+					m_children[base_child_name]->pimpl->merge_from(base_child);
+				}
+				else {
+					// Copy over entire child if it doesn't exist in derived
+					m_children[base_child_name] = base_child;
+				}
+			}
+		}
+	}
+
+	void merge_from(LDefinition* base)
+	{
+		// Merge attributes from base
+		for (const auto& [base_key, base_attr] : base->attributes())
+		{
+			if (m_attributes.count(base_key))
+			{
+				if (m_attributes[base_key]->value().index() == 0 &&
+					!m_attributes[base_key]->link())
+				{
+					if (base_attr->link())
+						m_attributes[base_key]->create_link(base_attr->link());
+					else
+						m_attributes[base_key]->set_value(base_attr->value());
+				}
+				for (const auto& [state, state_attr] : base_attr->states())
+				{
+					if (!m_attributes[base_key]->states().count(state))
+						m_attributes[base_key]->create_state(state, state_attr->value());
+				}
+			}
+			else {
+				m_attributes[base_key] = base_attr;
+			}
+		}
+
+		// Recursively merge children
+		for (const auto& [base_child_name, base_child] : base->children())
+		{
+			if (m_children.count(base_child_name))
+			{
+				m_children[base_child_name]->pimpl->merge_from(base_child);
+			}
+			else {
+				m_children[base_child_name] = base_child;
+			}
 		}
 	}
 
@@ -263,9 +308,6 @@ public:
 			if (attr_name == name)
 				return attr;
 		}
-
-		//if (base)
-		//	return base->find_attribute(name);
 		
 		return nullptr;
 	}
@@ -290,10 +332,6 @@ public:
 						return child_item->find_item(new_name_list);
 				}
 			}
-
-			// Check base
-			if (base)
-				return base->find_item(name_list);
 		}
 
 		return nullptr;
