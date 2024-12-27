@@ -89,7 +89,7 @@ public:
 
 			for (LAttribute* attr : t->find_children<LAttribute>())
 			{
-				attr->clear_theme_attribute();
+				attr->clear_definition_attribute();
 			}
 
 			for (LDefinable* child_t : t->find_children<LDefinable>())

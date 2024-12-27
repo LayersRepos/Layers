@@ -44,17 +44,9 @@ public:
 		const std::filesystem::path& file_path,
 		LDefinition* parent = nullptr);
 
-	// LTheme(const std::filesystem::path& directory);
-
-	// LTheme(const LString& name, bool editable = true);
-
-	// LTheme(const LString& name, const LString& uuid, bool editable);
-
 	~LTheme();
 
 	void append_to_lineage(const LString& theme_id);
-
-	void clear();
 
 	std::filesystem::path directory() const;
 
@@ -62,33 +54,17 @@ public:
 
 	bool editable() const;
 
-	//LDefinition* find_item(const LString& directory);
-
-	//LDefinition* find_item(const std::deque<LString>& name_list);
-
 	bool has_implementation(const LString& app_display_id) const;
 
 	std::vector<LString> lineage() const;
 
-	//void load();
-
-	//std::map<LString, LDefinition*> load_file(const LString& file_name);
-
-	//LString name() const;
-
 	LString publisher() const;
-
-	//LDefinition* root_item() const;
-
-	//void save();
 
 	void save_meta_file();
 
 	void set_dir(const std::filesystem::path& directory);
 
 	void set_edit_mode_enabled(bool enabled = true);
-
-	//void set_name(const LString& new_name);
 
 	void set_publisher(const LString& publisher);
 

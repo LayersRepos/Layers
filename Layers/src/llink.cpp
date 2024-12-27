@@ -87,7 +87,25 @@ public:
             LString absolute_attr_name = path_parts.back();
             path_parts.pop_back();
 
-            if (LDefinition* def = lController.find_definition(path_parts))
+            if (path_parts.empty())
+            {
+                if (attr->parent())
+                {
+                    if (LDefinition* def = dynamic_cast<LDefinition*>(attr->parent()))
+                    {
+                        for (const auto& [key, attr] : def->attributes())
+                            if (attr->object_name() == absolute_attr_name)
+                            {
+                                attribute = attr;
+
+                                //return true;
+                                //return attr->as<T>(parent_parent_as_def);
+                            }
+                    }
+                }
+            }
+
+            else if (LDefinition* def = lController.find_definition(path_parts))
                 for (const auto& [attr_name, attr] : def->attributes())
                     if (attr_name == absolute_attr_name)
                     {

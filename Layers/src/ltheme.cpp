@@ -56,8 +56,6 @@ public:
 			LJsonParser meta_parser = LJsonParser(meta_lexer);
 			LJsonObject meta_obj = meta_parser.parse_object();
 
-			//m_name = meta_obj["name"].to_string();
-
 			if (meta_obj.find("uuid") != meta_obj.end())
 				m_uuid = meta_obj["uuid"].to_string();
 
@@ -78,32 +76,16 @@ public:
 	}
 
 	Impl(const LString& name, bool editable = true) :
-		//m_name{ name },
 		m_uuid{ generate_uuid() },
 		m_editable{ editable } {}
 
 	Impl(const LString& name, const LString& uuid, bool editable) :
-		//m_name{ name },
 		m_uuid{ uuid },
 		m_editable{ editable } {}
 
 	void append_to_lineage(const LString& theme_id)
 	{
 		m_lineage.push_back(theme_id);
-	}
-
-	void clear()
-	{
-		// if (!m_edit_mode_enabled)
-		// {
-		// 	if (m_root_item)
-		// 	{
-		// 		delete m_root_item;
-		// 		m_root_item = nullptr;
-		// 	}
-
-		// 	m_file_items.clear();
-		// }
 	}
 
 	std::filesystem::path directory() const
@@ -139,7 +121,6 @@ public:
 		}
 
 		json_object["lineage"] = lineage_array;
-		//json_object["name"] = m_name;
 		json_object["uuid"] = m_uuid;
 
 		if (!publisher.empty())
@@ -206,9 +187,6 @@ LTheme::LTheme(
 		{
 			LJsonObject meta_object = object["_meta"].to_object();
 
-			//if (meta_object.find("name") != object.end())
-			//	set_object_name(meta_object["name"].to_string());
-
 			if (meta_object.find("publisher") != meta_object.end())
 				set_publisher(meta_object["publisher"].to_string());
 			
@@ -218,15 +196,6 @@ LTheme::LTheme(
 	}
 }
 
-// LTheme::LTheme(const std::filesystem::path& directory) :
-// 	pimpl{ new Impl(directory) } {}
-
-// LTheme::LTheme(const LString& name, bool editable) :
-// 	pimpl{ new Impl(name, editable) } {}
-
-// LTheme::LTheme(const LString& name, const LString& uuid, bool editable) :
-// 	pimpl{ new Impl(name, uuid, editable) } {}
-
 LTheme::~LTheme()
 {
 	delete pimpl;
@@ -235,11 +204,6 @@ LTheme::~LTheme()
 void LTheme::append_to_lineage(const LString& theme_id)
 {
 	pimpl->append_to_lineage(theme_id);
-}
-
-void LTheme::clear()
-{
-	pimpl->clear();
 }
 
 std::filesystem::path LTheme::directory() const

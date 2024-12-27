@@ -86,7 +86,7 @@ public:
 
 	void clear_states();
 
-	void clear_theme_attribute();
+	void clear_definition_attribute();
 
 	void create_link(LAttribute* link_attr);
 

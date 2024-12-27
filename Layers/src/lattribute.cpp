@@ -40,10 +40,10 @@ template LStringList LAttribute::as<LStringList>(const LStringList&);
 class LAttribute::Impl
 {
 public:
-	//LConnectionID m_link_destroyed_connection;
+	LConnectionID m_link_destroyed_connection;
 	LConnectionID def_connection;
 
-	//LAttributeList m_dependent_attrs;
+	LAttributeList m_dependent_attrs;
 
 	LAttribute* def_attr{ nullptr };
 
@@ -58,8 +58,8 @@ public:
 	LConnections m_change_connections;
 	LConnectionID m_change_connections_next_id;
 
-	//LConnections m_link_change_connections;
-	//LConnectionID m_link_change_connections_next_id;
+	LConnections m_link_change_connections;
+	LConnectionID m_link_change_connections_next_id;
 
 	Impl(const LString& name) {}
 
@@ -103,23 +103,23 @@ public:
 		if (def_attr)
 			def_attr->disconnect_change(def_connection);
 
-		//if (static_link)
-		//{
-			// m_link_attr->disconnect_destroyed(m_link_destroyed_connection);
+		if (link && link->attribute())
+		{
+			link->attribute()->disconnect_destroyed(m_link_destroyed_connection);
 
-			// for (auto dep_attr = m_link_attr->pimpl->m_dependent_attrs.begin();
-			// 	dep_attr != m_link_attr->pimpl->m_dependent_attrs.end(); dep_attr++)
-			// {
-			// 	if ((*dep_attr)->pimpl == this)
-			// 	{
-			// 		dep_attr = m_link_attr->pimpl->m_dependent_attrs.erase(dep_attr);
-			// 		m_link_attr->pimpl->update_link_dependencies();
-			// 		break;
-			// 	}
-			// }
+			 for (auto dep_attr = link->attribute()->pimpl->m_dependent_attrs.begin();
+			 	dep_attr != link->attribute()->pimpl->m_dependent_attrs.end(); dep_attr++)
+			 {
+			 	if ((*dep_attr)->pimpl == this)
+			 	{
+			 		dep_attr = link->attribute()->pimpl->m_dependent_attrs.erase(dep_attr);
+					link->attribute()->pimpl->update_link_dependencies();
+			 		break;
+			 	}
+			 }
 
-			//static_link = nullptr;
-		//}
+			link = nullptr;
+		}
 	}
 
 	void init_value(const LJsonValue json_value)
@@ -144,53 +144,69 @@ public:
 
 			if (!array.empty() && array[0].is_string())
 			{
-				if (is_gradient_stop(array[0].to_string()))
-				{
-					std::vector<LString> gradient_stops;
+				std::vector<LString> gradient_stops;
 
-					for (auto val : array)
-						gradient_stops.push_back(val.to_string());
+				for (const auto& val : array)
+					gradient_stops.push_back(val.to_string());
 
-					value = gradient_stops;
-				}
+				value = gradient_stops;
 			}
 		}
 	}
 
 	void break_link(LObject* parent)
 	{
-		// if (m_link_attr)
-		// {
-		// 	m_value = m_link_attr->value();
+		 if (link && link->attribute())
+		 {
+		 	value = link->attribute()->value();
 
-		// 	m_link_attr->disconnect_destroyed(m_link_destroyed_connection);
+			link->attribute()->disconnect_destroyed(m_link_destroyed_connection);
 
-		// 	for (auto dep_attr = m_link_attr->pimpl->m_dependent_attrs.begin();
-		// 		dep_attr != m_link_attr->pimpl->m_dependent_attrs.end(); dep_attr++)
-		// 	{
-		// 		if ((*dep_attr)->pimpl == this)
-		// 		{
-		// 			dep_attr = m_link_attr->pimpl->m_dependent_attrs.erase(dep_attr);
-		// 			m_link_attr->pimpl->update_link_dependencies();
-		// 			break;
-		// 		}
-		// 	}
+		 	for (auto dep_attr = link->attribute()->pimpl->m_dependent_attrs.begin();
+		 		dep_attr != link->attribute()->pimpl->m_dependent_attrs.end(); dep_attr++)
+		 	{
+		 		if ((*dep_attr)->pimpl == this)
+		 		{
+		 			dep_attr = link->attribute()->pimpl->m_dependent_attrs.erase(dep_attr);
+					link->attribute()->pimpl->update_link_dependencies();
+		 			break;
+		 		}
+		 	}
 
-		// 	m_link_attr = nullptr;
-		// 	m_link_path = "";
-		// }
+			delete link;
+			link = nullptr;
 
-		// update_link_dependencies();
-		// update_dependencies(parent);
+			update_link_dependencies();
+			update_dependencies(parent);
+		 }
 	}
 
-	void clear_theme_attribute()
+	void clear_definition_attribute()
 	{
 		if (def_attr)
 		{
 			def_attr->disconnect_change(def_connection);
 			def_attr = nullptr;
 		}
+	}
+
+	void create_link(LObject* parent, LAttribute* link_attr)
+	{
+		value = LVariant();
+
+		break_link(parent);
+
+		link = new LLink(link_attr);
+
+		m_link_destroyed_connection = link_attr->on_destroyed(
+			[this] {
+				delete link;
+				link = nullptr;
+			}
+		);
+
+		update_link_dependencies();
+		update_dependencies(parent);
 	}
 
 	void create_state(
@@ -202,19 +218,18 @@ public:
 	LAttributeList dependent_attributes(
 		bool include_indirect_dependencies) const
 	{
-		LAttributeList dependent_attributes;
-		//LAttributeList dependent_attributes = m_dependent_attrs;
+		LAttributeList dependent_attributes = m_dependent_attrs;
 
-		// if (include_indirect_dependencies)
-		// 	for (LAttribute* dependent_attr : m_dependent_attrs)
-		// 	{
-		// 		LAttributeList attrs =
-		// 			dependent_attr->dependent_attributes(
-		// 				include_indirect_dependencies);
+		if (include_indirect_dependencies)
+			for (LAttribute* dependent_attr : m_dependent_attrs)
+			{
+				LAttributeList attrs =
+					dependent_attr->dependent_attributes(
+		 				include_indirect_dependencies);
 
-		// 		std::copy(attrs.begin(), attrs.end(),
-		// 			std::back_inserter(dependent_attributes));
-		// 	}
+				std::copy(attrs.begin(), attrs.end(),
+					std::back_inserter(dependent_attributes));
+			}
 
 		return dependent_attributes;
 	}
@@ -228,7 +243,7 @@ public:
 	void disconnect_link_change(
 		const LConnectionID& connection)
 	{
-		//m_link_change_connections.erase(connection);
+		m_link_change_connections.erase(connection);
 	}
 
 	bool has_states() const
@@ -244,30 +259,16 @@ public:
 		return false;
 	}
 
-	bool is_gradient_stop(const LString& str) const
-	{
-		/*
-			TODO: Improve this function! It only works for the first gradient stop
-			and assumes that it is written as a 0
-		*/
-		if (str.starts_with("0:"))
-			return true;
-		
-		return false;
-	}
-
 	LConnectionID on_change(std::function<void()> callback)
 	{
 		m_change_connections[m_change_connections_next_id++] = callback;
 		return std::prev(m_change_connections.end())->first;
-		//return LConnectionID();
 	}
 
 	LConnectionID on_link_change(std::function<void()> callback)
 	{
-		//m_link_change_connections[m_link_change_connections_next_id++] = callback;
-		//return std::prev(m_link_change_connections.end())->first;
-		return LConnectionID();
+		m_link_change_connections[m_link_change_connections_next_id++] = callback;
+		return std::prev(m_link_change_connections.end())->first;
 	}
 
 	LAttribute* state(const LStringList& state_combo)
@@ -315,11 +316,12 @@ public:
 
 	void set_value(LObject* parent, const LVariant& v)
 	{
-		if (link)
+		if (link && link->attribute())
 		{
-			//m_link_attr->set_value(value);
-			//update_dependencies(parent);
+			link->attribute()->set_value(v);
+			update_dependencies(parent);
 		}
+
 		if (!link && value.index() == v.index())
 		{
 			bool same_value = false;
@@ -428,19 +430,19 @@ public:
 		 for (auto& change_function : m_change_connections)
 		 	change_function.second();
 
-		// if (!m_dependent_attrs.empty())
-		// {
-		// 	for (const auto& dependent_attr : m_dependent_attrs)
-		// 	{
-		// 		dependent_attr->update_dependencies();
-		// 	}
-		// }
+		 if (!m_dependent_attrs.empty())
+		 {
+		 	for (const auto& dependent_attr : m_dependent_attrs)
+		 	{
+		 		dependent_attr->update_dependencies();
+		 	}
+		 }
 
 		if (parent)
 		{
-			if (LDefinable* t = dynamic_cast<LDefinable*>(parent))
+			if (LDefinable* d = dynamic_cast<LDefinable*>(parent))
 			{
-				t->update();
+				d->update();
 			}
 			else if (LAttribute* a = dynamic_cast<LAttribute*>(parent))
 			{
@@ -451,15 +453,15 @@ public:
 
 	void update_link_dependencies()
 	{
-		// for (auto& link_change_function : m_link_change_connections)
-		// {
-		// 	link_change_function.second();
-		// }
+		 for (auto& link_change_function : m_link_change_connections)
+		 {
+		 	link_change_function.second();
+		 }
 
-		// for (LAttribute* dependent_attr : dependent_attributes(true))
-		// {
-		// 	dependent_attr->pimpl->update_link_dependencies();
-		// }
+		 for (LAttribute* dependent_attr : dependent_attributes(true))
+		 {
+		 	dependent_attr->pimpl->update_link_dependencies();
+		 }
 	}
 
 	void update_json_object()
@@ -535,7 +537,10 @@ LAttribute::~LAttribute()
 
 void LAttribute::create_link(LAttribute* link_attr)
 {
-	pimpl->link = new LLink(link_attr);
+	pimpl->create_link(parent(), link_attr);
+
+	link_attr->pimpl->m_dependent_attrs.push_back(this);
+	link_attr->pimpl->update_link_dependencies();
 }
 
 void LAttribute::create_link(LLink* link)
@@ -573,9 +578,9 @@ void LAttribute::clear_states()
 	}
 }
 
-void LAttribute::clear_theme_attribute()
+void LAttribute::clear_definition_attribute()
 {
-	pimpl->clear_theme_attribute();
+	pimpl->clear_definition_attribute();
 }
 
 LAttributeList LAttribute::dependent_attributes(
@@ -660,6 +665,10 @@ void LAttribute::resolve_links()
 	{
 		if (!pimpl->link->resolve(this));
 		// TODO: Handle link resolution failure
+
+		if (pimpl->link->attribute())
+			pimpl->link->attribute()->pimpl->m_dependent_attrs.push_back(this);
+			//link_attr->pimpl->update_link_dependencies();
 	}
 
 	for (const auto& [key, state] : pimpl->states)
@@ -710,8 +719,8 @@ size_t LAttribute::type_index() const
 
 const LVariant& LAttribute::value()
 {
-	// if (pimpl->link && pimpl->link->attribute())
-	// 	return pimpl->link->attribute()->value();
+	 if (pimpl->link && pimpl->link->attribute())
+	 	return pimpl->link->attribute()->value();
 
 	return pimpl->value;
 }

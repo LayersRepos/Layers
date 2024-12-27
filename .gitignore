@@ -67,7 +67,8 @@ layersproject.org/
 docs.layersproject.org/
 
 # Private Directories
-Concepts/
+concepts/
+documents/
 
 # MacOS
 .DS_Store

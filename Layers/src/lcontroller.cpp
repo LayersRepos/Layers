@@ -143,8 +143,6 @@ public:
 				parent_def->append_child(unparented_def);
 			}
 		}
-
-		int x = 26;
 	}
 
 	std::map<std::filesystem::path, LJsonObject> build_file_objects(
