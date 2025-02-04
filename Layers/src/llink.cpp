@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -141,6 +141,11 @@ LLink::LLink(const LLink& l) :
  LAttribute* LLink::relative_attribute() const
  {
      return pimpl->relative_attribute;
+ }
+
+ LString LLink::path() const
+ {
+     return pimpl->path;
  }
 
 bool LLink::resolve(LAttribute* attr)

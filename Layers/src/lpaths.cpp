@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -42,6 +42,11 @@ std::filesystem::path Layers::definitions_path()
 std::filesystem::path Layers::themes_path()
 {
 	return layers_path() / "Themes";
+}
+
+std::filesystem::path Layers::styles_path()
+{
+	return layers_path() / "Styles";
 }
 
 std::filesystem::path Layers::T1_path()

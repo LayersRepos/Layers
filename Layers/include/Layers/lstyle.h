@@ -17,25 +17,38 @@
  * along with Layers. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef LPATHS_H
-#define LPATHS_H
-
-#include <filesystem>
-#include <string>
+#ifndef LSTYLE_H
+#define LSTYLE_H
 
 #include "layers_global.h"
 #include "layers_exports.h"
 
+#include "ldefinition.h"
+
 LAYERS_NAMESPACE_BEGIN
-LAYERS_EXPORT std::filesystem::path app_path(const std::string& app_name);
-LAYERS_EXPORT std::filesystem::path latest_T_version_path();
-LAYERS_EXPORT std::filesystem::path layers_path();
-LAYERS_EXPORT std::filesystem::path definitions_path();
-LAYERS_EXPORT std::filesystem::path themes_path();
-LAYERS_EXPORT std::filesystem::path styles_path();
-LAYERS_EXPORT std::filesystem::path T1_path();
-LAYERS_EXPORT std::filesystem::path T2_path();
-LAYERS_EXPORT std::filesystem::path local_app_data_path();
+
+class LStyle;
+using LStyleList = std::vector<LStyle*>;
+
+class LAYERS_EXPORT LStyle : public LDefinition
+{
+public:
+	LStyle(
+		const LString& name,
+		const LJsonValue& value,
+		const std::filesystem::path& file_path,
+		LDefinition* parent = nullptr);
+
+	~LStyle();
+
+	LString publisher() const;
+
+	void set_publisher(const LString& publisher);
+
+private:
+	class Impl;
+	Impl* pimpl;
+};
 LAYERS_NAMESPACE_END
 
-#endif // !LPATHS_H
+#endif // LSTYLE_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -43,6 +43,8 @@ public:
 
 	std::map<LString, LDefinition*> m_children;
 	std::map<LString, LAttribute*> m_attributes;
+
+	LDefinition* style_definition{ nullptr };
 
 	bool m_is_overridable{ false };
 
@@ -134,6 +136,37 @@ public:
 		m_children[child->object_name()] = child;
 	}
 
+	void apply_style(LDefinition* style_def)
+	{
+		style_definition = style_def;
+
+		const auto& style_attrs = style_def->attributes();
+		if (!style_attrs.empty())
+		{
+			for (const auto& [attr_name, attr] : attributes())
+			{
+				auto it = style_attrs.find(attr->object_name());
+				if (it != style_attrs.end())
+				{
+					attr->set_definition_attribute(it->second);
+				}
+			}
+		}
+
+		const auto& style_children = style_def->children();
+		if (!style_children.empty())
+		{
+			for (auto [child_name, child] : m_children)
+			{
+				auto it = style_children.find(child->object_name());
+				if (it != style_children.end())
+				{
+					child->apply_style(it->second);
+				}
+			}
+		}
+	}
+
 	std::vector<LString> attribute_group_names() const
 	{
 		std::vector<LString> attribute_group_names;
@@ -190,6 +223,40 @@ public:
 		return m_children.size();
 	}
 
+	void clear_style()
+	{
+		if (style_definition)
+		{
+			const auto& style_attrs = style_definition->attributes();
+			if (!style_attrs.empty())
+			{
+				for (const auto& [attr_name, attr] : attributes())
+				{
+					auto it = style_attrs.find(attr->object_name());
+					if (it != style_attrs.end())
+					{
+						attr->clear_definition_attribute();
+					}
+				}
+			}
+
+			const auto& style_children = style_definition->children();
+			if (!style_children.empty())
+			{
+				for (auto [child_name, child] : m_children)
+				{
+					auto it = style_children.find(child->object_name());
+					if (it != style_children.end())
+					{
+						child->clear_style();
+					}
+				}
+			}
+
+			style_definition = nullptr;
+		}
+	}
+
 	std::set<LDefinition*> dependencies()
 	{
 		std::set<LDefinition*> dependencies;
@@ -213,52 +280,14 @@ public:
 	void finalize()
 	{
 		// Finalize all children first
-		for (const auto& [child_name, child] : m_children) {
+		for (const auto& [child_name, child] : m_children)
+		{
 			child->finalize();
 		}
 
 		if (base)
 		{
-			// Merge attributes
-			LAttributeMap base_attrs = base->attributes();
-
-			for (const auto& [base_key, base_attr] : base_attrs)
-			{
-				if (m_attributes.count(base_key))
-				{
-					if (m_attributes[base_key]->value().index() == 0 &&
-						!m_attributes[base_key]->link())
-					{
-						if (base_attr->link())
-							m_attributes[base_key]->create_link(base_attr->link());
-						else
-							m_attributes[base_key]->set_value(base_attr->value());
-					}
-					// Optionally check and merge missing states from base
-					for (const auto& [state, state_attr] : base_attr->states())
-					{
-						if (!m_attributes[base_key]->states().count(state))
-							m_attributes[base_key]->create_state(state, state_attr->value());
-					}
-				}
-				else {
-					m_attributes[base_key] = base_attr;
-				}
-			}
-
-			// Merge children recursively
-			for (const auto& [base_child_name, base_child] : base->children())
-			{
-				if (m_children.count(base_child_name))
-				{
-					// Child exists, recursively finalize and merge attributes
-					m_children[base_child_name]->pimpl->merge_from(base_child);
-				}
-				else {
-					// Copy over entire child if it doesn't exist in derived
-					m_children[base_child_name] = base_child;
-				}
-			}
+			merge_from(base);
 		}
 	}
 
@@ -283,7 +312,8 @@ public:
 						m_attributes[base_key]->create_state(state, state_attr->value());
 				}
 			}
-			else {
+			else
+			{
 				m_attributes[base_key] = base_attr;
 			}
 		}
@@ -295,7 +325,8 @@ public:
 			{
 				m_children[base_child_name]->pimpl->merge_from(base_child);
 			}
-			else {
+			else
+			{
 				m_children[base_child_name] = base_child;
 			}
 		}
@@ -401,6 +432,11 @@ void LDefinition::append_child(LDefinition* child)
 	pimpl->append_child(child);
 }
 
+void LDefinition::apply_style(LDefinition* style_def)
+{
+	pimpl->apply_style(style_def);
+}
+
 std::vector<LString> LDefinition::attribute_group_names() const
 {
 	return pimpl->attribute_group_names();
@@ -433,6 +469,11 @@ size_t LDefinition::child_count() const
 std::map<LString, LDefinition*> LDefinition::children()
 {
 	return pimpl->m_children;
+}
+
+void LDefinition::clear_style()
+{
+	pimpl->clear_style();
 }
 
 std::set<LDefinition*> LDefinition::dependencies()
@@ -499,15 +540,15 @@ LString LDefinition::path() const
 
 	path_names.push_back(object_name());
 
-	LDefinition* theme_item = dynamic_cast<LDefinition*>(parent());
+	LDefinition* definition = dynamic_cast<LDefinition*>(parent());
 
-	while (theme_item)
+	while (definition)
 	{
-		LString name = theme_item->object_name();
+		LString name = definition->object_name();
 		if (!name.empty())
 			path_names.insert(path_names.begin(), name);
 
-		theme_item = dynamic_cast<LDefinition*>(theme_item->parent());
+		definition = dynamic_cast<LDefinition*>(definition->parent());
 	}
 
 	std::ostringstream joined_names;

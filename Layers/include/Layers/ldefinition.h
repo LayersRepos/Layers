@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -50,6 +50,8 @@ public:
 
 	void append_child(LDefinition* child);
 
+	void apply_style(LDefinition* style_def);
+
 	std::vector<LString> attribute_group_names() const;
 
 	std::map<LString, LAttribute*> attributes(int type_index = -1);
@@ -63,6 +65,8 @@ public:
 	size_t child_count() const;
 
 	std::map<LString, LDefinition*> children();
+
+	void clear_style();
 
 	std::set<LDefinition*> dependencies();
 

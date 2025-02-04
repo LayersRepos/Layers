@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -29,10 +29,13 @@
 #include <Layers/lalgorithms.h>
 #include <Layers/lattribute.h>
 #include <Layers/lpaths.h>
+#include <Layers/lstyle.h>
 #include <Layers/ltheme.h>
 
 using Layers::LDefinition;
 using Layers::LString;
+using Layers::LStyle;
+using Layers::LStyleList;
 using Layers::LTheme;
 using Layers::LController;
 
@@ -48,10 +51,13 @@ struct DependencyData
 class LController::Impl
 {
 public:
-	std::map<LString, LTheme*> themes;
-	LTheme* active_theme{ nullptr };
-
 	LDefinition* root_definition{ new LDefinition };
+
+	std::map<LString, LStyle*> styles;
+	std::map<LString, LTheme*> themes;
+
+	LStyleList active_styles;
+	LTheme* active_theme{ nullptr };
 
 	std::map<LString, LDefinition*> unparented_definitions;
 
@@ -66,83 +72,16 @@ public:
 			delete theme.second;
 	}
 
+	void add_style(LStyle* style)
+	{
+		if (style)
+			styles[style->object_name()] = style;
+	}
+
 	void add_theme(LTheme* theme)
 	{
 		if (theme)
 			themes[theme->display_id()] = theme;
-	}
-
-	std::map<std::filesystem::path, std::string> load_definition_path(
-		const std::filesystem::path& path)
-	{
-		std::map<std::filesystem::path, std::string> file_strings;
-
-		for (const auto& entry : std::filesystem::directory_iterator(path))
-		{
-			if (entry.is_regular_file() && entry.path().filename().string()[0] != '_')
-			{
-				file_strings[entry.path()] = load_json_file(entry.path());
-			}
-			else if (entry.is_directory())
-			{
-				std::map<std::filesystem::path, std::string> child_file_strings = 
-					load_definition_path(entry.path());
-
-				file_strings.insert(child_file_strings.begin(), child_file_strings.end());
-			}
-		}
-
-		return file_strings;
-	}
-
-	void load_definitions(const std::filesystem::path& path)
-	{
-		// Load and Parse Aliases
-		std::map<std::filesystem::path, std::string> file_strings = load_definition_path(path);
-		parse_aliases(path, file_strings);
-
-		// Parse file_strings into file_objects
-		std::map<std::filesystem::path, LJsonObject> file_objects =
-			build_file_objects(file_strings);
-
-		// Build Definitions
-
-		std::set<LDefinition*> unresolved_definitions = build_definitions(file_objects);
-
-		// Resolve Bases
-
-		for (LDefinition* def : unresolved_definitions)
-			resolve_base(def);
-
-		// Build Dependency Graph
-		DependencyData dep_data = build_dependency_data(unresolved_definitions);
-
-		std::vector<LDefinition*> ordered_definitions = topological_sort(dep_data);
-
-		// Copy Bases
-
-		for (LDefinition* def : ordered_definitions)
-			def->finalize();
-
-		// Resolve Parents
-
-		for (const auto& [_, unparented_def] : unparented_definitions)
-		{
-			LString unparented_def_name =
-				unparented_def->object_name();
-
-			auto name_list = split<std::deque<LString>>(
-				unparented_def->object_name(), '/');
-			LString new_name = name_list.back();
-			name_list.pop_back();
-
-			if (LDefinition* parent_def = root_definition->find_item(name_list))
-			{
-				unparented_def->set_object_name(new_name);
-				unparented_def->set_parent(parent_def);
-				parent_def->append_child(unparented_def);
-			}
-		}
 	}
 
 	std::map<std::filesystem::path, LJsonObject> build_file_objects(
@@ -297,6 +236,111 @@ public:
 		}
 	}
 
+	std::map<std::filesystem::path, std::string> load_definition_path(
+		const std::filesystem::path& path)
+	{
+		std::map<std::filesystem::path, std::string> file_strings;
+
+		for (const auto& entry : std::filesystem::directory_iterator(path))
+		{
+			if (entry.is_regular_file() && entry.path().filename().string()[0] != '_')
+			{
+				file_strings[entry.path()] = load_json_file(entry.path());
+			}
+			else if (entry.is_directory())
+			{
+				std::map<std::filesystem::path, std::string> child_file_strings =
+					load_definition_path(entry.path());
+
+				file_strings.insert(child_file_strings.begin(), child_file_strings.end());
+			}
+		}
+
+		return file_strings;
+	}
+
+	void load_definitions(const std::filesystem::path& path)
+	{
+		// Load and Parse Aliases
+		std::map<std::filesystem::path, std::string> file_strings = load_definition_path(path);
+		parse_aliases(path, file_strings);
+
+		// Parse file_strings into file_objects
+		std::map<std::filesystem::path, LJsonObject> file_objects =
+			build_file_objects(file_strings);
+
+		// Build Definitions
+
+		std::set<LDefinition*> unresolved_definitions = build_definitions(file_objects);
+
+		// Resolve Bases
+
+		for (LDefinition* def : unresolved_definitions)
+			resolve_base(def);
+
+		// Build Dependency Graph
+		DependencyData dep_data = build_dependency_data(unresolved_definitions);
+
+		std::vector<LDefinition*> ordered_definitions = topological_sort(dep_data);
+
+		// Copy Bases
+
+		for (LDefinition* def : ordered_definitions)
+			def->finalize();
+
+		// Resolve Parents
+
+		for (const auto& [_, unparented_def] : unparented_definitions)
+		{
+			LString unparented_def_name =
+				unparented_def->object_name();
+
+			auto name_list = split<std::deque<LString>>(
+				unparented_def->object_name(), '/');
+			LString new_name = name_list.back();
+			name_list.pop_back();
+
+			if (LDefinition* parent_def = root_definition->find_item(name_list))
+			{
+				unparented_def->set_object_name(new_name);
+				unparented_def->set_parent(parent_def);
+				parent_def->append_child(unparented_def);
+			}
+		}
+	}
+
+	LStyle* load_style(const std::filesystem::path& style_file_path)
+	{
+		std::string style_file_str = load_json_file(style_file_path);
+
+		LJsonLexer lexer(style_file_str);
+		LJsonParser parser(lexer);
+		LJsonObject json_object = parser.parse_object();
+
+		LStyle* style = new LStyle(
+			style_file_path.filename().string().c_str(),
+			json_object,
+			style_file_path);
+
+		for (const auto& [key, value] : json_object)
+		{
+			if (!key.starts_with("_"))
+				style->append_child(new LDefinition(key, value, style_file_path));
+		}
+
+		return style;
+	}
+
+	void load_styles(const std::filesystem::path& path)
+	{
+		for (const auto& dir_entry :
+			std::filesystem::directory_iterator(path))
+		{
+			if (dir_entry.is_regular_file())
+				add_style(load_style(dir_entry.path()));
+		}
+	}
+
 	LTheme* load_theme(const std::filesystem::path& directory)
 	{
 		std::map<std::filesystem::path, std::string> file_strings = 
@@ -315,6 +359,18 @@ public:
 			for (const auto& [key, value] : json_object)
 				return new LTheme(key, value, file_path);
 		}
+
+		return nullptr;
+	}
+
+	LTheme* load_theme(const std::string& file_string)
+	{
+		LJsonLexer lexer(file_string);
+		LJsonParser parser(lexer);
+		LJsonObject json_object = parser.parse_object();
+
+		for (const auto& [key, value] : json_object)
+			return new LTheme(key, value, "");
 
 		return nullptr;
 	}
@@ -362,6 +418,11 @@ LController::~LController()
 	delete pimpl;
 }
 
+LStyleList LController::active_styles()
+{
+	return pimpl->active_styles;
+}
+
 LTheme* LController::active_theme() const
 {
 	return pimpl->active_theme;
@@ -394,9 +455,22 @@ LController& LController::instance()
 	return instance;
 }
 
-void LController::include(const LString& path)
+LTheme* LController::load_theme(const std::string& file_string)
+{
+	return pimpl->load_theme(file_string);
+}
+
+LDefinition* LController::root_definition() const
+{
+	return pimpl->root_definition;
+}
+
+void LController::include(const LString& path, bool is_application)
 {
 	pimpl->load_definitions(definitions_path() / std::string(path.c_str()));
+
+	if (is_application)
+		pimpl->load_styles(styles_path() / std::string(path.c_str()));
 }
 
 bool LController::set_active_theme(LTheme* theme)
@@ -418,6 +492,11 @@ bool LController::set_active_theme(LTheme* theme)
 	return false;
 }
 
+std::map<LString, LStyle*> LController::styles() const
+{
+	return pimpl->styles;
+}
+
 LTheme* LController::theme(const LString& themeId) const
 {
 	auto it = pimpl->themes.find(themeId);
@@ -427,4 +506,44 @@ LTheme* LController::theme(const LString& themeId) const
 std::map<LString, LTheme*> LController::themes() const
 {
 	return pimpl->themes;
+}
+
+bool LController::toggle_style(const LString& style_id)
+{
+	LStyle* style = pimpl->styles[style_id];
+
+	if (std::count(pimpl->active_styles.begin(), pimpl->active_styles.end(), style))
+	{
+		// Style is already active, so it needs to be toggled off here!
+
+		for (const auto& [style_def_name, style_def] : style->children())
+		{
+			if (LDefinition* def = pimpl->root_definition->find_item(style_def_name))
+			{
+				def->clear_style();
+			}
+		}
+
+		auto it = std::find(pimpl->active_styles.begin(), pimpl->active_styles.end(), style);
+		if (it != pimpl->active_styles.end())
+		{
+			pimpl->active_styles.erase(it);
+		}
+
+		return false;
+	}
+
+	// Otherwise, the style needs to be toggled on
+
+	for (const auto& [style_def_name, style_def] : style->children())
+	{
+		if (LDefinition* def = pimpl->root_definition->find_item(style_def_name))
+		{
+			def->apply_style(style_def);
+		}
+	}
+
+	pimpl->active_styles.push_back(style);
+
+	return true;
 }

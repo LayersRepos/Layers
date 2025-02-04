@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -48,6 +48,8 @@ public:
     LAttribute* attribute() const;
 
 	LAttribute* relative_attribute() const;
+
+	LString path() const;
 
     bool resolve(LAttribute* attr);
 

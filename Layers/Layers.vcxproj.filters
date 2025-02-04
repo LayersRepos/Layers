@@ -63,6 +63,9 @@
     <ClInclude Include="include\Layers\llink.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\Layers\lstyle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ljson.cpp">
@@ -99,6 +102,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\llink.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lstyle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

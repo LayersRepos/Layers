@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -181,13 +181,15 @@ public:
 		 }
 	}
 
-	void clear_definition_attribute()
+	void clear_definition_attribute(LObject* parent)
 	{
 		if (def_attr)
 		{
 			def_attr->disconnect_change(def_connection);
 			def_attr = nullptr;
 		}
+
+		update_dependencies(parent);
 	}
 
 	void create_link(LObject* parent, LAttribute* link_attr)
@@ -580,7 +582,7 @@ void LAttribute::clear_states()
 
 void LAttribute::clear_definition_attribute()
 {
-	pimpl->clear_definition_attribute();
+	pimpl->clear_definition_attribute(parent());
 }
 
 LAttributeList LAttribute::dependent_attributes(
@@ -666,9 +668,20 @@ void LAttribute::resolve_links()
 		if (!pimpl->link->resolve(this));
 		// TODO: Handle link resolution failure
 
-		if (pimpl->link->attribute())
-			pimpl->link->attribute()->pimpl->m_dependent_attrs.push_back(this);
+		if (const auto& link_attr = pimpl->link->attribute())
+		{
+			bool link_attr_already_has_this_dependency = false;
+
+			for (const auto& dep_attr : link_attr->pimpl->m_dependent_attrs)
+			{
+				if (dep_attr == this)
+					link_attr_already_has_this_dependency = true;
+			}
+
+			if (!link_attr_already_has_this_dependency)
+				link_attr->pimpl->m_dependent_attrs.push_back(this);
 			//link_attr->pimpl->update_link_dependencies();
+		}
 	}
 
 	for (const auto& [key, state] : pimpl->states)

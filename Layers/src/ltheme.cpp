@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Layers Project
+ * Copyright (C) 2025 The Layers Project
  *
  * This file is part of Layers.
  *
@@ -214,15 +214,15 @@ std::filesystem::path LTheme::directory() const
 LString LTheme::display_id() const
 {
 	if (!pimpl->publisher.empty())
-		{
-			return object_name() + " (" + pimpl->publisher + ")";
-		}
-		else if (!pimpl->m_uuid.empty())
-		{
-			return object_name() + " (" + pimpl->m_uuid + ")";
-		}
+	{
+		return object_name() + " (" + pimpl->publisher + ")";
+	}
+	else if (!pimpl->m_uuid.empty())
+	{
+		return object_name() + " (" + pimpl->m_uuid + ")";
+	}
 
-		return object_name();
+	return object_name();
 }
 
 bool LTheme::editable() const
