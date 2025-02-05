@@ -559,6 +559,17 @@ LString LDefinition::path() const
 	return result.substr(0, result.length() - 1).c_str();
 }
 
+LDefinition* LDefinition::parent() const
+{
+	if (LObject* p = LObject::parent())
+	{
+		if (LDefinition* p_as_def = dynamic_cast<LDefinition*>(p))
+			return p_as_def;
+	}
+
+	return nullptr;
+}
+
 void LDefinition::resolve_links()
 {
 	for (const auto& [attr_name, attr] : attributes())

@@ -32,10 +32,10 @@ using Layers::LString;
 using Layers::LStringList;
 using Layers::LVariant;
 
-template double LAttribute::as<double>(const LStringList&);
-template bool LAttribute::as<bool>(const LStringList&);
-template LString LAttribute::as<LString>(const LStringList&);
-template LStringList LAttribute::as<LStringList>(const LStringList&);
+template double LAttribute::as<double>(const LStringList&, LDefinition*);
+template bool LAttribute::as<bool>(const LStringList&, LDefinition*);
+template LString LAttribute::as<LString>(const LStringList&, LDefinition*);
+template LStringList LAttribute::as<LStringList>(const LStringList&, LDefinition*);
 
 class LAttribute::Impl
 {

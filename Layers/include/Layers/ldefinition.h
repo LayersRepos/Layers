@@ -88,6 +88,8 @@ public:
 
 	LString path() const;
 
+	LDefinition* parent() const;
+
 	void resolve_links();
 
 	void set_base(LDefinition* base_def);

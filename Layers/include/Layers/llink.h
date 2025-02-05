@@ -47,11 +47,13 @@ public:
 
     LAttribute* attribute() const;
 
-	LAttribute* relative_attribute() const;
-
 	LString path() const;
 
+	LString relative_path() const;
+
     bool resolve(LAttribute* attr);
+
+	LAttribute* resolve(LDefinition* context);
 
 private:
 	class Impl;

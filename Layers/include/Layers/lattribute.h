@@ -77,10 +77,14 @@ public:
 	~LAttribute();
 
 	template<typename T>
-	T as(const LStringList& state_combo = LStringList());
+	T as(
+		const LStringList& state_combo = LStringList(),
+		LDefinition* context = nullptr);
 
 	template<typename T>
-	const T* as_if(const LStringList& state_combo = LStringList());
+	const T* as_if(
+		const LStringList& state_combo = LStringList(),
+		LDefinition* context = nullptr);
 
 	void break_link();
 
@@ -145,10 +149,22 @@ private:
 };
 
 template<typename T>
-T LAttribute::as(const LStringList& state_combo)
+T LAttribute::as(const LStringList& state_combo, LDefinition* context)
 {
 	if (definition_attribute())
-		return definition_attribute()->as<T>(state_combo);
+	{
+		if (LObject* p = parent())
+		{
+			if (LDefinable* d = dynamic_cast<LDefinable*>(p))
+			{
+				return definition_attribute()->as<T>(state_combo, d->definition());
+			}
+		}
+		else
+		{
+			return definition_attribute()->as<T>(state_combo);
+		}
+	}
 	
 	if (!states().empty() && !state_combo.empty()) {
 		if (LAttribute* state_attr = state(state_combo))
@@ -157,34 +173,58 @@ T LAttribute::as(const LStringList& state_combo)
 	
 	if (link())
 	{
-		if (link()->relative_attribute())
-			return link()->relative_attribute()->as<T>();
-
-		else if (link()->attribute())
-			return link()->attribute()->as<T>();
+		if (link()->attribute())
+		{
+			return link()->attribute()->as<T>(state_combo, context);
+		}
+		else if (link()->relative_path() != "")
+		{
+			if (LAttribute* res_attr = link()->resolve(context))
+			{
+				return res_attr->as<T>();
+			}
+		}
 	}
 
 	return std::get<T>(value());
 }
 
 template<typename T>
-const T* LAttribute::as_if(const LStringList& state_combo)
+const T* LAttribute::as_if(const LStringList& state_combo, LDefinition* context)
 {
 	if (definition_attribute())
-		return definition_attribute()->as_if<T>(state_combo);
+	{
+		if (LObject* p = parent())
+		{
+			if (LDefinable* d = dynamic_cast<LDefinable*>(p))
+			{
+				return definition_attribute()->as_if<T>(state_combo, d->definition());
+			}
+		}
+		else
+		{
+			return definition_attribute()->as_if<T>(state_combo);
+		}
+	}
 
 	if (!states().empty() && !state_combo.empty()) {
 		if (LAttribute* state_attr = state(state_combo))
 			return state_attr->as_if<T>();
 	}
-	
+
 	if (link())
 	{
-		if (link()->relative_attribute())
-			return link()->relative_attribute()->as_if<T>();
-
-		else if (link()->attribute())
-			return link()->attribute()->as_if<T>();
+		if (link()->attribute())
+		{
+			return link()->attribute()->as_if<T>(state_combo, context);
+		}
+		else if (link()->relative_path() != "")
+		{
+			if (LAttribute* res_attr = link()->resolve(context))
+			{
+				return res_attr->as_if<T>();
+			}
+		}
 	}
 
 	return std::get_if<T>(&value());

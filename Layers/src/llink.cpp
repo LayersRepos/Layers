@@ -35,7 +35,6 @@ public:
     LString relative_path;
 
 	LAttribute* attribute{ nullptr };
-	LAttribute* relative_attribute{ nullptr };
 
     Impl(const LString& path, const LString& relative_path) :
         path{ path }, relative_path{ relative_path } {}
@@ -45,42 +44,6 @@ public:
 
     bool resolve(LAttribute* attr)
     {
-        if (!relative_path.empty())
-        {
-            LStringList relative_path_parts =
-                split<LStringList>(relative_path, '/');
-
-            /*
-                NOTE:
-                The following assumes that dynamic links always begin with double-
-                dot notation and that there is always only 1 of them. Other cases
-                have not yet been considered.
-            */
-            if (relative_path_parts[0] == "..")
-            {
-                if (attr->parent())
-                {
-                    if (LDefinition* def = dynamic_cast<LDefinition*>(attr->parent()))
-                    {
-                        if (def->parent())
-                        {
-                            if (LDefinition* def_parent = dynamic_cast<LDefinition*>(def->parent()))
-                            {
-                                for (const auto& [key, attr] : def_parent->attributes())
-                                    if (attr->object_name() == relative_path_parts[1])
-                                    {
-                                        relative_attribute = attr;
-
-                                        //return true;
-                                        //return attr->as<T>(parent_parent_as_def);
-                                    }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
         if (!path.empty())
         {
             auto path_parts = split<std::deque<LString>>(path, '/');
@@ -104,8 +67,8 @@ public:
                     }
                 }
             }
-
             else if (LDefinition* def = lController.find_definition(path_parts))
+            {
                 for (const auto& [attr_name, attr] : def->attributes())
                     if (attr_name == absolute_attr_name)
                     {
@@ -114,6 +77,7 @@ public:
                         return true;
                         //return attr->as<T>();
                     }
+            }
         }
 
         return true;
@@ -130,25 +94,81 @@ LLink::LLink(const LLink& l) :
     pimpl{ new Impl(l.pimpl->path, l.pimpl->relative_path) }
 {
 	pimpl->attribute = l.pimpl->attribute;
-	pimpl->relative_attribute = l.pimpl->relative_attribute;
 }
 
- LAttribute* LLink::attribute() const
+LAttribute* LLink::attribute() const
 {
     return pimpl->attribute;
 }
 
- LAttribute* LLink::relative_attribute() const
- {
-     return pimpl->relative_attribute;
- }
+LString LLink::path() const
+{
+    return pimpl->path;
+}
 
- LString LLink::path() const
- {
-     return pimpl->path;
- }
+LString LLink::relative_path() const
+{
+    return pimpl->relative_path;
+}
 
 bool LLink::resolve(LAttribute* attr)
 {
     return pimpl->resolve(attr);
+}
+
+LAttribute* LLink::resolve(LDefinition* starting_context)
+{
+    if (!starting_context) {
+        // Cannot resolve without a valid starting context.
+        return nullptr;
+    }
+
+    // Tokenize the path by '/'.
+    // (Assume you have some tokenization function available.)
+    std::vector<LString> tokens = split<std::vector<LString>>(pimpl->relative_path, '/');
+
+    // Begin with the provided derivative definition.
+    LDefinition* context = starting_context;
+
+    // Walk up the hierarchy for each ".." token.
+    size_t tokenIndex = 0;
+    while (tokenIndex < tokens.size() && tokens[tokenIndex] == "..") {
+        // Move one level up in the definition hierarchy.
+        LDefinition* parent_context = context->parent();
+        if (!parent_context) {
+            // You could choose to handle this as an error or simply break out.
+            // For now, we break out or return nullptr.
+            return nullptr;
+        }
+        context = parent_context;
+        tokenIndex++;
+    }
+
+    // Optionally, skip over any current directory tokens (".").
+    while (tokenIndex < tokens.size() && tokens[tokenIndex] == ".") {
+        tokenIndex++;
+    }
+
+    // The remaining tokens (if any) specify the path to the attribute relative to currentContext.
+    // For simplicity, if there’s only one token left, treat that as the attribute name.
+    // If there are multiple tokens, you might need to recursively walk sub-containers,
+    // or join them into one key, depending on your data structure.
+    if (tokenIndex < tokens.size()) {
+        // For illustration, let’s assume a simple attribute lookup using a joined key.
+        // (Alternatively, you might iterate over the tokens and do a hierarchical lookup.)
+        LString remainingKey;
+        // Join remaining tokens with your delimiter (for example, using a simple loop)
+        for (size_t i = tokenIndex; i < tokens.size(); ++i) {
+            if (i != tokenIndex)
+                remainingKey = remainingKey + "/";
+            remainingKey = remainingKey + tokens[i];
+        }
+
+        // Now, ask the current context to return the attribute with this name.
+        return context->find_attribute(remainingKey);
+    }
+
+    // If no tokens remain, you might want to return the whole context as an attribute,
+    // or simply return nullptr depending on what “../” alone means in your system.
+    return nullptr;
 }
