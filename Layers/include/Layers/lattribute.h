@@ -160,10 +160,8 @@ T LAttribute::as(const LStringList& state_combo, LDefinition* context)
 				return definition_attribute()->as<T>(state_combo, d->definition());
 			}
 		}
-		else
-		{
-			return definition_attribute()->as<T>(state_combo);
-		}
+		
+		return definition_attribute()->as<T>(state_combo);
 	}
 	
 	if (!states().empty() && !state_combo.empty()) {
@@ -201,10 +199,8 @@ const T* LAttribute::as_if(const LStringList& state_combo, LDefinition* context)
 				return definition_attribute()->as_if<T>(state_combo, d->definition());
 			}
 		}
-		else
-		{
-			return definition_attribute()->as_if<T>(state_combo);
-		}
+		
+		return definition_attribute()->as_if<T>(state_combo);
 	}
 
 	if (!states().empty() && !state_combo.empty()) {
